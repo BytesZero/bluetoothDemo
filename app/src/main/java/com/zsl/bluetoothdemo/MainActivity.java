@@ -1,21 +1,15 @@
 package com.zsl.bluetoothdemo;
 
-import android.bluetooth.BluetoothAdapter;
 import android.bluetooth.BluetoothDevice;
 import android.bluetooth.BluetoothGatt;
 import android.bluetooth.BluetoothGattCallback;
 import android.bluetooth.BluetoothGattCharacteristic;
 import android.bluetooth.BluetoothGattService;
-import android.bluetooth.BluetoothManager;
 import android.bluetooth.BluetoothProfile;
-import android.content.Context;
-import android.content.Intent;
 import android.os.Bundle;
 import android.os.Handler;
 import android.os.Message;
-import android.support.v4.view.ViewPropertyAnimatorUpdateListener;
 import android.support.v7.app.AppCompatActivity;
-import android.util.Log;
 import android.view.Menu;
 import android.view.MenuItem;
 import android.view.View;
@@ -87,6 +81,8 @@ public class MainActivity extends AppCompatActivity {
                     tv_state.setText("连接成功");
                 } else if (msg.what == 5) {
                     Logger.e("devicesAdapter.notifyDataSetChanged();");
+                    bluetoothDevices= (List<BluetoothDevice>) msg.obj;
+                    Logger.e("bluetoothDevices:"+bluetoothDevices);
                     if (devicesAdapter == null) {
                         //蓝牙的Adapter
                         devicesAdapter = new DevicesAdapter(MainActivity.this, bluetoothDevices);
@@ -221,14 +217,22 @@ public class MainActivity extends AppCompatActivity {
 
         if (id == R.id.action_settings) {
             Logger.e("scanLeDevice(true)");
+            if (devicesAdapter!=null) {
+                bluetoothDevices.clear();
+                devicesAdapter.notifyDataSetChanged();
+            }
             //扫描设备
             universalBluetoothLE.startScanLeDevice(new UniversalBluetoothLE.LeScanListenter() {
 
                 @Override
                 public void leScanCallBack(List<BluetoothDevice> bluetoothDeviceList) {
                     Logger.e(bluetoothDeviceList.get(0).getName());
-                    bluetoothDevices = bluetoothDeviceList;
-                    mHandler.sendEmptyMessage(5);
+//                    bluetoothDevices = bluetoothDeviceList;
+                    Logger.e("bluetoothDeviceList:" + bluetoothDeviceList + "");
+                    Message message = new Message();
+                    message.what = 5;
+                    message.obj = bluetoothDeviceList;
+                    mHandler.sendMessage(message);
                 }
             });
             return true;
