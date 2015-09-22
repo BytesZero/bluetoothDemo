@@ -1,51 +1,34 @@
 package com.zsl.bluetoothdemo;
 
+import android.app.Activity;
+import android.bluetooth.BluetoothAdapter;
 import android.bluetooth.BluetoothDevice;
-import android.bluetooth.BluetoothGatt;
-import android.bluetooth.BluetoothGattCallback;
-import android.bluetooth.BluetoothGattCharacteristic;
-import android.bluetooth.BluetoothGattService;
-import android.bluetooth.BluetoothProfile;
+import android.content.Intent;
 import android.os.Bundle;
 import android.os.Handler;
-import android.os.Message;
-import android.support.v7.app.AppCompatActivity;
 import android.view.Menu;
 import android.view.MenuItem;
 import android.view.View;
 import android.widget.AdapterView;
 import android.widget.ListView;
 import android.widget.TextView;
+import android.widget.Toast;
 
 import com.orhanobut.logger.Logger;
 import com.zsl.bluetoothdemo.adapter.DevicesAdapter;
-import com.zsl.bluetoothdemo.ble.UniversalBluetoothLE;
+import com.zsl.bluetoothdemo.base.BaseActivity;
+import com.zsl.bluetoothdemo.utils.ble.BleWrapper;
+import com.zsl.bluetoothdemo.utils.ble.BleWrapperUiCallbacks;
+
+import java.util.ArrayList;
 import java.util.List;
-import java.util.UUID;
 
 
-public class MainActivity extends AppCompatActivity {
-
-    private static final UUID UUID_MILI_SERVICE = UUID
-            .fromString("0000fee0-0000-1000-8000-00805f9b34fb");
-
-    private static final UUID UUID_CHAR_REALTIME_STEPS = UUID
-            .fromString("0000ff06-0000-1000-8000-00805f9b34fb");
-
-    private static final UUID UUID_CHAR_pair = UUID
-            .fromString("0000ff0f-0000-1000-8000-00805f9b34fb");
-
-
-    Handler mHandler;
-
-    BluetoothGatt mBluetoothGatt;
-
-
-    private static final int STATE_DISCONNECTED = 0;
-    private static final int STATE_CONNECTING = 1;
-    private static final int STATE_CONNECTED = 2;
-
-    private int mConnectionState = STATE_DISCONNECTED;
+public class MainActivity extends BaseActivity {
+    //扫描超时
+    private static final long SCANNING_TIMEOUT = 5 * 1000; /* 5 seconds */
+    //requestid请求打开蓝牙
+    private static final int ENABLE_BT_REQUEST_ID = 1;
 
     //蓝牙设别的list
     private List<BluetoothDevice> bluetoothDevices;
@@ -54,60 +37,36 @@ public class MainActivity extends AppCompatActivity {
     ListView lv_show;
     TextView tv_state;
     private DevicesAdapter devicesAdapter;
-
-
     int mSteps = 0;
 
-    UniversalBluetoothLE universalBluetoothLE;
+//    BleWrapper 对象
+    private BleWrapper mBleWrapper = null;
+//    是否启动自动扫描
+    private boolean mScanning = false;
+//    handler
+    private Handler mHandler = new Handler();
+
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
         setContentView(R.layout.activity_main);
 
+        // 创建一个BleWrapper然后返回扫描到的设备
+        mBleWrapper = new BleWrapper(this, new BleWrapperUiCallbacks.Null() {
+            @Override
+            public void uiDeviceFound(final BluetoothDevice device, final int rssi, final byte[] record) {
+                handleFoundDevice(device, rssi, record);
+            }
+        });
 
-        //初始化UniversalBluetoothLE
-        universalBluetoothLE = UniversalBluetoothLE.inistance(MainActivity.this);
-        //打开蓝牙
-        universalBluetoothLE.openBbletooth();
-
+        if(mBleWrapper.checkBleHardwareAvailable() == false) {
+            bleMissing();
+        }
 
         initView();
-
-        mHandler = new Handler() {
-            @Override
-            public void handleMessage(Message msg) {
-                if (msg.what == 2) {
-                    tv_state.setText("连接成功");
-                } else if (msg.what == 5) {
-                    Logger.e("devicesAdapter.notifyDataSetChanged();");
-                    bluetoothDevices= (List<BluetoothDevice>) msg.obj;
-                    Logger.e("bluetoothDevices:"+bluetoothDevices);
-                    if (devicesAdapter == null) {
-                        //蓝牙的Adapter
-                        devicesAdapter = new DevicesAdapter(MainActivity.this, bluetoothDevices);
-                        //设置Adapter
-                        lv_show.setAdapter(devicesAdapter);
-                    } else {
-                        devicesAdapter.notifyDataSetChanged();
-                    }
-
-                } else if (msg.what == 0) {
-                    tv_state.setText(mSteps + "步");
-                }
-            }
-        };
-
-
     }
 
-    private void request(UUID what) {
-        mBluetoothGatt.readCharacteristic(getMiliService().getCharacteristic(what));
-    }
-
-    private BluetoothGattService getMiliService() {
-        return mBluetoothGatt.getService(UUID_MILI_SERVICE);
-    }
 
     private void initView() {
         tv_state = (TextView) findViewById(R.id.main_tv_state);
@@ -120,89 +79,61 @@ public class MainActivity extends AppCompatActivity {
                 Logger.e("name:" + device.getName() + "address:" + device.getAddress() + "bluetoothcalss:" + device.getBluetoothClass() + "bondstate:" + device.getBondState() + "type:" + device
                         .getType() + "uuid:" + device.getUuids());
 
-                mBluetoothGatt=universalBluetoothLE.getConnectGatt(device,true,mGattCallback);
-                mBluetoothGatt.connect();
+                Intent intent=new Intent(MainActivity.this,DeviceHomeActivity.class);
+                intent.putExtra("BluetoothDevice",device);
+                startActivity(intent);
+
             }
         });
     }
 
     @Override
+    protected void onResume() {
+        super.onResume();
+        // 检查是否打开了蓝牙
+        if(mBleWrapper.isBtEnabled() == false) {
+            //如果没有打开通知用户打开蓝牙
+            Intent enableBtIntent = new Intent(BluetoothAdapter.ACTION_REQUEST_ENABLE);
+            startActivityForResult(enableBtIntent, ENABLE_BT_REQUEST_ID);
+            // 在 onActivityResult 中检查用户是否打开了蓝牙功能
+        }
+
+        // 初始化 BleWrapper 对象
+        mBleWrapper.initialize();
+
+        bluetoothDevices=new ArrayList<BluetoothDevice>();
+        devicesAdapter=new DevicesAdapter(this,bluetoothDevices);
+        lv_show.setAdapter(devicesAdapter);
+
+        // 是否启动自动烧卖哦
+        mScanning = true;
+        // 添加扫描超时
+        addScanningTimeout();
+        //启动扫描
+        mBleWrapper.startScanning();
+    }
+
+    @Override
     protected void onPause() {
         super.onPause();
-        mBluetoothGatt.disconnect();
-        mBluetoothGatt.close();
-        mBluetoothGatt=null;
+        mScanning = false;
+
+        mBleWrapper.stopScanning();
+        bluetoothDevices.clear();
     }
 
-    private void pair() {
-
-        BluetoothGattCharacteristic chrt = getMiliService().getCharacteristic(
-                UUID_CHAR_pair);
-
-        chrt.setValue(new byte[]{2});
-
-        mBluetoothGatt.writeCharacteristic(chrt);
-
-        Logger.e("pair sent");
+    @Override
+    protected void onActivityResult(int requestCode, int resultCode, Intent data) {
+        // 检查用户是否同意打开蓝牙
+        if (requestCode == ENABLE_BT_REQUEST_ID) {
+            if(resultCode == Activity.RESULT_CANCELED) {
+                btDisabled();
+                return;
+            }
+        }
+        super.onActivityResult(requestCode, resultCode, data);
     }
 
-    private final BluetoothGattCallback mGattCallback =
-            new BluetoothGattCallback() {
-
-                @Override
-                public void onConnectionStateChange(BluetoothGatt gatt, int status,
-                                                    int newState) {
-                    if (newState == BluetoothProfile.STATE_CONNECTED) {
-                        mConnectionState = STATE_CONNECTED;
-                        Logger.e("Connected to GATT server：" + newState);
-
-                        mHandler.sendEmptyMessage(newState);
-                        gatt.discoverServices();
-
-
-                    } else if (newState == BluetoothProfile.STATE_DISCONNECTED) {
-                        mConnectionState = STATE_DISCONNECTED;
-                        Logger.e("Disconnected from GATT server.");
-                    }
-                }
-
-                @Override
-                // New services discovered
-                public void onServicesDiscovered(BluetoothGatt gatt, int status) {
-                    if (status == BluetoothGatt.GATT_SUCCESS) {
-                        pair();
-                        Logger.e("onServicesDiscovered: " + status);
-                    } else {
-                        Logger.e("onServicesDiscovered received: " + status);
-                    }
-                }
-
-                @Override
-                // Result of a characteristic read operation
-                public void onCharacteristicRead(BluetoothGatt gatt,
-                                                 BluetoothGattCharacteristic characteristic,
-                                                 int status) {
-                    Logger.e("onCharacteristicRead: " + status);
-                    if (status == BluetoothGatt.GATT_SUCCESS) {
-
-                        byte[] b = characteristic.getValue();
-                        Logger.e(characteristic.getUuid() + "bbb:" + b);
-
-                        if (characteristic.getUuid().equals(UUID_CHAR_REALTIME_STEPS)) {
-                            mSteps = (0xff & b[0] | (0xff & b[1]) << 8);
-                            Logger.e("mSteps:" + mSteps);
-                            mHandler.sendEmptyMessage(0);
-                        }
-                    }
-                    request(UUID_CHAR_REALTIME_STEPS);
-                }
-
-                @Override
-                public void onCharacteristicWrite(BluetoothGatt gatt, BluetoothGattCharacteristic characteristic, int status) {
-                    Logger.e("onCharacteristicWrite: " + status);
-                    request(UUID_CHAR_REALTIME_STEPS);
-                }
-            };
 
 
     @Override
@@ -216,29 +147,65 @@ public class MainActivity extends AppCompatActivity {
         int id = item.getItemId();
 
         if (id == R.id.action_settings) {
-            Logger.e("scanLeDevice(true)");
-            if (devicesAdapter!=null) {
-                bluetoothDevices.clear();
-                devicesAdapter.notifyDataSetChanged();
-            }
-            //扫描设备
-            universalBluetoothLE.startScanLeDevice(new UniversalBluetoothLE.LeScanListenter() {
-
-                @Override
-                public void leScanCallBack(List<BluetoothDevice> bluetoothDeviceList) {
-                    Logger.e(bluetoothDeviceList.get(0).getName());
-//                    bluetoothDevices = bluetoothDeviceList;
-                    Logger.e("bluetoothDeviceList:" + bluetoothDeviceList + "");
-                    Message message = new Message();
-                    message.what = 5;
-                    message.obj = bluetoothDeviceList;
-                    mHandler.sendMessage(message);
-                }
-            });
+            mBleWrapper.startScanning();
             return true;
         }
 
         return super.onOptionsItemSelected(item);
+    }
+
+
+    /**
+     * 添加设备到列表
+     * @param device
+     * @param rssi
+     * @param scanRecord
+     */
+    private void handleFoundDevice(final BluetoothDevice device,
+                                   final int rssi,
+                                   final byte[] scanRecord)
+    {
+        // adding to the UI have to happen in UI thread
+        runOnUiThread(new Runnable() {
+            @Override
+            public void run() {
+                if(bluetoothDevices.contains(device) == false) {
+                    bluetoothDevices.add(device);
+                    devicesAdapter.notifyDataSetChanged();
+                }
+            }
+        });
+    }
+
+    /**
+     * 添加扫描超时
+     */
+    private void addScanningTimeout() {
+        Runnable timeout = new Runnable() {
+            @Override
+            public void run() {
+                if(mBleWrapper == null) return;
+                mScanning = false;
+                mBleWrapper.stopScanning();
+                invalidateOptionsMenu();
+            }
+        };
+        mHandler.postDelayed(timeout, SCANNING_TIMEOUT);
+    }
+
+    /**
+     * 用户没有打开蓝牙
+     */
+    private void btDisabled() {
+        Toast.makeText(this,"对不起，只有打开蓝牙才可以运行软件", Toast.LENGTH_LONG).show();
+        finish();
+    }
+    /**
+     * 此设备不支持蓝牙功能
+     */
+    private void bleMissing() {
+        Toast.makeText(this, "此设备不支持蓝牙功能", Toast.LENGTH_LONG).show();
+        finish();
     }
 
 }

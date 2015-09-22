@@ -19,6 +19,7 @@ public abstract class UniversalAdapter<T> extends BaseAdapter {
     int layoutId;
 
 
+
     /**
      * 通用的Adapter
      * @param context 上下文

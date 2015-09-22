@@ -17,8 +17,8 @@ public class DevicesAdapter extends UniversalAdapter<BluetoothDevice> {
     /**
      * 通用的Adapter
      *
-     * @param context  上下文
-     * @param mlists   数据集
+     * @param context 上下文
+     * @param mlists  数据集
      */
 
     public DevicesAdapter(Context context, List<BluetoothDevice> mlists) {
