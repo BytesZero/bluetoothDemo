@@ -20,6 +20,10 @@ import java.util.UUID;
  * Created by zsl on 15/9/21.
  */
 public class DeviceHomeActivity extends BaseActivity implements BleWrapperUiCallbacks{
+
+
+
+
     private static final UUID UUID_MILI_SERVICE = UUID
             .fromString("0000fee0-0000-1000-8000-00805f9b34fb");
 
@@ -36,7 +40,7 @@ public class DeviceHomeActivity extends BaseActivity implements BleWrapperUiCall
 
 
     //记录步数
-    int mSteps = 0;
+    int mSteps = 1;
 
 
     //btDevice
