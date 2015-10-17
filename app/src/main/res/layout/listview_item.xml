@@ -1,16 +1,18 @@
 <?xml version="1.0" encoding="utf-8"?>
-<RelativeLayout xmlns:android="http://schemas.android.com/apk/res/android"
+<RelativeLayout
+    xmlns:android="http://schemas.android.com/apk/res/android"
     android:layout_width="match_parent"
-    android:layout_height="60dp"
-    android:descendantFocusability="blocksDescendants" >
+    android:layout_height="wrap_content"
+    android:descendantFocusability="blocksDescendants"
+    android:minHeight="60dp">
 
     <ImageView
         android:id="@+id/listview_item_iv_icon"
         android:layout_width="50dp"
         android:layout_height="50dp"
-        android:layout_marginLeft="10dp"
         android:layout_centerVertical="true"
-        android:src="@mipmap/ic_launcher" />
+        android:layout_marginLeft="10dp"
+        android:src="@mipmap/ic_launcher"/>
 
     <TextView
         android:id="@+id/listview_item_tv_name"
@@ -20,7 +22,7 @@
         android:layout_margin="10dp"
         android:layout_toRightOf="@id/listview_item_iv_icon"
         android:text="name"
-        android:textStyle="bold" />
+        android:textStyle="bold"/>
 
     <TextView
         android:id="@+id/listview_item_tv_address"
@@ -29,6 +31,6 @@
         android:layout_alignParentBottom="true"
         android:layout_margin="10dp"
         android:layout_toRightOf="@id/listview_item_iv_icon"
-        android:text="man" />
+        android:text="man"/>
 
 </RelativeLayout>

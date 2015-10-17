@@ -6,6 +6,17 @@
     android:orientation="vertical"
     android:gravity="center">
 
+    <Button
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:text="OAD升级"
+        android:id="@+id/devices_bt_oad" android:layout_gravity="center_horizontal"/>
+
+    <Button
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:text="OAD升级暂停"
+        android:id="@+id/devices_bt_oad_stop" android:layout_gravity="center_horizontal"/>
     <TextView
         android:id="@+id/device_home_tv_connect_state"
         android:layout_width="wrap_content"
