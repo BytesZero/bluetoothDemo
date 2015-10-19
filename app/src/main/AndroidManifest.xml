@@ -18,7 +18,7 @@
         android:theme="@style/AppTheme"
         android:name=".application.MyApplication">
         <activity
-            android:name=".MainActivity"
+            android:name=".activitys.MainActivity"
             android:label="@string/app_name" >
             <intent-filter>
                 <action android:name="android.intent.action.MAIN" />
@@ -27,10 +27,13 @@
             </intent-filter>
         </activity>
         <activity
-            android:name=".DeviceHomeActivity"
+            android:name=".activitys.DeviceHomeActivity"
             android:label="@string/title_activity_device_home"
             android:theme="@style/AppTheme.NoActionBar" >
         </activity>
+
+        <!-- 历史数据-->
+        <activity android:name=".activitys.HistoryDataActivity"/>
 
         <!-- 蓝牙的Service-->
         <service android:name=".utils.ble.oad.BluetoothLeService" android:enabled="true"/>

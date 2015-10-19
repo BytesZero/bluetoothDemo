@@ -3,7 +3,7 @@ package com.zsl.bluetoothdemo.adapter;
 import android.bluetooth.BluetoothDevice;
 import android.content.Context;
 
-import com.zsl.bluetoothdemo.MyBluetoothDevice;
+import com.zsl.bluetoothdemo.activitys.MyBluetoothDevice;
 import com.zsl.bluetoothdemo.R;
 import com.zsl.bluetoothdemo.utils.adapter.UniversalAdapter;
 import com.zsl.bluetoothdemo.utils.adapter.ViewHolder;

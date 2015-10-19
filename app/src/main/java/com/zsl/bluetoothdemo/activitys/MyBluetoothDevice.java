@@ -1,4 +1,4 @@
-package com.zsl.bluetoothdemo;
+package com.zsl.bluetoothdemo.activitys;
 
 import android.bluetooth.BluetoothDevice;
 

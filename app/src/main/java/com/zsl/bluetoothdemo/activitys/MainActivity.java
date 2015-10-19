@@ -1,4 +1,4 @@
-package com.zsl.bluetoothdemo;
+package com.zsl.bluetoothdemo.activitys;
 
 import android.app.Activity;
 import android.bluetooth.BluetoothAdapter;
@@ -16,6 +16,7 @@ import android.widget.Button;
 import android.widget.ListView;
 import android.widget.Toast;
 
+import com.zsl.bluetoothdemo.R;
 import com.zsl.bluetoothdemo.adapter.DevicesAdapter;
 import com.zsl.bluetoothdemo.base.BaseActivity;
 import com.zsl.bluetoothdemo.utils.ble.oad.BluetoothLeService;
@@ -53,6 +54,9 @@ public class MainActivity extends BaseActivity {
     private boolean mInitialised = false;
 
 
+    private static MainActivity myMainActivity=null;
+
+
     @Override
     protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
@@ -81,12 +85,13 @@ public class MainActivity extends BaseActivity {
             @Override
             public void onItemClick(AdapterView<?> parent, View view, int position, long id) {
 
+                scanLeDevice(false);
+
                 BluetoothDevice device = bluetoothDevices.get(position).getBluetoothDevice();
 
                 Intent intent = new Intent(MainActivity.this, DeviceHomeActivity.class);
                 intent.putExtra("BluetoothDevice", device);
                 startActivity(intent);
-                Toast.makeText(MainActivity.this, "连接成功", Toast.LENGTH_SHORT).show();
 
             }
         });
@@ -94,6 +99,8 @@ public class MainActivity extends BaseActivity {
 
 
     private void initData() {
+        myMainActivity=this;
+
         bluetoothDevices = new ArrayList<MyBluetoothDevice>();
         devicesAdapter = new DevicesAdapter(this, bluetoothDevices);
         lv_show.setAdapter(devicesAdapter);
@@ -101,6 +108,10 @@ public class MainActivity extends BaseActivity {
     }
 
 
+    //获得到MainActivity
+    public static MainActivity getInstance(){
+        return myMainActivity;
+    }
 
     @Override
     protected void onResume() {
@@ -113,6 +124,14 @@ public class MainActivity extends BaseActivity {
     protected void onPause() {
         super.onPause();
         scanLeDevice(false);
+    }
+
+    public static BluetoothManager getmBluetoothManager() {
+        return mBluetoothManager;
+    }
+
+    public BluetoothAdapter getmBtAdapter() {
+        return mBtAdapter;
     }
 
     @Override
@@ -139,6 +158,8 @@ public class MainActivity extends BaseActivity {
         int id = item.getItemId();
 
         if (id == R.id.action_settings) {
+            bluetoothDevices.clear();
+            devicesAdapter.notifyDataSetChanged();
             if (!mInitialised) {
                 mBluetoothLeService = BluetoothLeService.getInstance();
                 mBluetoothManager = mBluetoothLeService.getBtManager();
@@ -166,7 +187,7 @@ public class MainActivity extends BaseActivity {
         Runnable timeout = new Runnable() {
             @Override
             public void run() {
-
+//                scanLeDevice(false);
             }
         };
         mHandler.postDelayed(timeout, SCANNING_TIMEOUT);
@@ -182,6 +203,7 @@ public class MainActivity extends BaseActivity {
             return false;
         }
         if (enable) {
+            addScanningTimeout();
             mScanning = mBtAdapter.startLeScan(mLeScanCallback);
         } else {
             mScanning = false;

@@ -1,9 +1,11 @@
-package com.zsl.bluetoothdemo;
+package com.zsl.bluetoothdemo.activitys;
 
+import android.bluetooth.BluetoothAdapter;
 import android.bluetooth.BluetoothDevice;
 import android.bluetooth.BluetoothGatt;
 import android.bluetooth.BluetoothGattCharacteristic;
 import android.bluetooth.BluetoothGattService;
+import android.bluetooth.BluetoothManager;
 import android.content.BroadcastReceiver;
 import android.content.Context;
 import android.content.Intent;
@@ -15,6 +17,7 @@ import android.widget.Button;
 import android.widget.TextView;
 import android.widget.Toast;
 
+import com.zsl.bluetoothdemo.R;
 import com.zsl.bluetoothdemo.base.BaseActivity;
 import com.zsl.bluetoothdemo.utils.ble.oad.BluetoothLeService;
 import com.zsl.bluetoothdemo.utils.ble.oad.Conversion;
@@ -40,7 +43,7 @@ public class DeviceHomeActivity extends BaseActivity {
 
 
     TextView tv_connect_state;
-    Button bt_oad,bt_oad_stop;
+    Button bt_oad, bt_oad_stop, bt_connect,bt_history;
     //btDevice
     BluetoothDevice bleDevice;
 
@@ -48,9 +51,12 @@ public class DeviceHomeActivity extends BaseActivity {
     /**
      * OAD
      */
+    private MainActivity myMainActivity = null;
     private BluetoothLeService mLeService = null;
     // BLE
-    private  BluetoothGatt bleGatt;
+    private static BluetoothManager mBluetoothManager;
+    private BluetoothAdapter mBtAdapter = null;
+    private BluetoothGatt bleGatt;
     private BluetoothGattService mOadService;
     private BluetoothGattService mConnControlService;
     private List<BluetoothGattCharacteristic> mCharListOad;
@@ -60,7 +66,7 @@ public class DeviceHomeActivity extends BaseActivity {
     private BluetoothGattCharacteristic mCharConnReq = null;
 
     //所有的Service
-    List <BluetoothGattService> serviceList=new ArrayList<BluetoothGattService>();
+    List<BluetoothGattService> serviceList = new ArrayList<BluetoothGattService>();
 
 
     // Housekeeping
@@ -68,9 +74,9 @@ public class DeviceHomeActivity extends BaseActivity {
     private boolean mProgramming = false;
 
     //fileName
-    String filename="APP_OAD_1.1.bin";
-//    String filename="APP_OAD_1.0.bin";
-    String oadTag="oadTag";
+    String filename = "APP_OAD_1.1.bin";
+    //    String filename="APP_OAD_1.0.bin";
+    String oadTag = "oadTag";
 
     private static final int OAD_BLOCK_SIZE = 16;
     private static final int HAL_FLASH_WORD_SIZE = 4;
@@ -78,8 +84,10 @@ public class DeviceHomeActivity extends BaseActivity {
     private static final long TIMER_INTERVAL = 1000;
 
     // Programming parameters
-    private static final short OAD_CONN_INTERVAL = 6; // 15 milliseconds
+    private static final short OAD_CONN_INTERVAL = 6; // 7.5 milliseconds
+    private static final short OAD_CONN_INTERVAL40 = 30; // 37.5 milliseconds
     private static final short OAD_SUPERVISION_TIMEOUT = 50; // 500 milliseconds
+    private static final short OAD_SUPERVISION_TIMEOUT500 = 500; // 500 milliseconds
 
     private ImgHdr mFileImgHdr;
     private ImgHdr mTargImgHdr;
@@ -91,7 +99,7 @@ public class DeviceHomeActivity extends BaseActivity {
     private byte[] mFileBuffer;
     private final byte[] mOadBuffer = new byte[OAD_BUFFER_SIZE];
     //长度
-    private int bufferLenth=0;
+    private int bufferLenth = 0;
 
     private boolean slowAlgo = true;
 
@@ -111,58 +119,104 @@ public class DeviceHomeActivity extends BaseActivity {
     private void initView() {
         tv_connect_state = (TextView) findViewById(R.id.device_home_tv_connect_state);
         bt_oad = (Button) findViewById(R.id.devices_bt_oad);
-        bt_oad_stop= (Button) findViewById(R.id.devices_bt_oad_stop);
+        bt_oad_stop = (Button) findViewById(R.id.devices_bt_oad_stop);
+        bt_connect = (Button) findViewById(R.id.devices_bt_connect);
+
+        bt_history= (Button) findViewById(R.id.devices_bt_history);
     }
 
     private void initEvent() {
         bt_oad.setOnClickListener(new View.OnClickListener() {
             @Override
             public void onClick(View v) {
+                setConnectionParameters();
                 startProgramming();
+            }
+        });
+
+        bt_oad_stop.setOnClickListener(new View.OnClickListener() {
+            @Override
+            public void onClick(View v) {
+                stopProgramming();
+            }
+        });
+
+        bt_connect.setOnClickListener(new View.OnClickListener() {
+            @Override
+            public void onClick(View v) {
+                connectDevice();
+            }
+        });
+
+        bt_history.setOnClickListener(new View.OnClickListener() {
+            @Override
+            public void onClick(View v) {
+                baseStartActivity(HistoryDataActivity.class);
             }
         });
     }
 
     private void initData() {
-        tv_connect_state.setText("正在连接。。。");
+
+        myMainActivity = MainActivity.getInstance();
+
+
         //注册广播
         registerReceiver(BleBroadcastReceiver, SettingIntentFilter());
         //获得到BluetoothLeService对象
         mLeService = BluetoothLeService.getInstance();
+        mBluetoothManager = myMainActivity.getmBluetoothManager();
+        mBtAdapter = myMainActivity.getmBtAdapter();
         bleDevice = getIntent().getParcelableExtra("BluetoothDevice");
-        boolean isConnect=mLeService.connect(bleDevice.getAddress());
-        if (isConnect){
-            Toast.makeText(this, "连接成功", Toast.LENGTH_SHORT).show();
-            //获得Gatt服务
-            bleGatt = BluetoothLeService.getBtGatt();
-            //扫描服务
-            discoverServices(bleGatt);
-        }else{
-            Toast.makeText(this,"连接失败",Toast.LENGTH_SHORT).show();
+
+        connectDevice();
+    }
+
+    private void connectDevice() {
+
+
+
+        int connState = mBluetoothManager.getConnectionState(bleDevice,
+                BluetoothGatt.GATT);
+        switch (connState) {
+            case BluetoothGatt.STATE_CONNECTED:
+
+                Toast.makeText(this, "已连接", Toast.LENGTH_SHORT).show();
+                break;
+            case BluetoothGatt.STATE_DISCONNECTED:
+                tv_connect_state.setText("正在连接。。。");
+                boolean ok = mLeService.connect(bleDevice.getAddress());
+                if (!ok) {
+                    Toast.makeText(this, "连接失败", Toast.LENGTH_SHORT).show();
+                }
+                break;
+            default:
+                break;
         }
-
-
-
     }
 
     /**
      * 初始化OAD
      */
-    private void initOAD(List<BluetoothGattService> mserviceList){
+    private void initOAD(List<BluetoothGattService> mserviceList) {
 
-        for (int i=0;i<mserviceList.size();i++){
-            BluetoothGattService mGattService=mserviceList.get(i);
+        for (int i = 0; i < mserviceList.size(); i++) {
+            BluetoothGattService mGattService = mserviceList.get(i);
             //oadService
-            if (mGattService.getUuid().equals(UUID_OAD_SERVICE)){
-                mOadService=mGattService;
-            }else if (mGattService.getUuid().equals(UUID_CONNCONTROL_SERVICE)){
-            //连接控制的Service
-                mConnControlService=mGattService;
+            if (mGattService.getUuid().equals(UUID_OAD_SERVICE)) {
+                mOadService = mGattService;
+            } else if (mGattService.getUuid().equals(UUID_CONNCONTROL_SERVICE)) {
+                //连接控制的Service
+                mConnControlService = mGattService;
             }
         }
+
         // 获得到对应Service的Characteristics list
         mCharListOad = mOadService.getCharacteristics();
         mCharListCc = mConnControlService.getCharacteristics();
+        if (mCharListOad == null || mCharListCc == null) {
+            return;
+        }
         //验证Characteristics list
         mServiceOk = mCharListOad.size() == 2 && mCharListCc.size() >= 3;
         if (mServiceOk) {
@@ -179,21 +233,35 @@ public class DeviceHomeActivity extends BaseActivity {
 
     /**
      * 扫描Service
+     *
      * @param bluetoothGatt
      */
     private void discoverServices(BluetoothGatt bluetoothGatt) {
-        if (bluetoothGatt.discoverServices()) {
-            serviceList.clear();
+        if (bluetoothGatt != null) {
+            if (bluetoothGatt.discoverServices()) {
+                serviceList.clear();
+            }
         }
+
     }
 
     /**
      * 发送连接间隔
      */
     private void setConnectionParameters() {
+        if (mCharConnReq == null)
+            return;
         // Make sure connection interval is long enough for OAD (Android default connection interval is 7.5 ms)
         byte[] value = {Conversion.loUint16(OAD_CONN_INTERVAL), Conversion.hiUint16(OAD_CONN_INTERVAL), Conversion.loUint16(OAD_CONN_INTERVAL),
                 Conversion.hiUint16(OAD_CONN_INTERVAL), 0, 0, Conversion.loUint16(OAD_SUPERVISION_TIMEOUT), Conversion.hiUint16(OAD_SUPERVISION_TIMEOUT)};
+        mCharConnReq.setValue(value);
+        mLeService.writeCharacteristic(mCharConnReq);
+    }
+
+    private void setConnectionParameters100() {
+        // Make sure connection interval is long enough for OAD (Android default connection interval is 7.5 ms)
+        byte[] value = {Conversion.loUint16(OAD_CONN_INTERVAL40), Conversion.hiUint16(OAD_CONN_INTERVAL40), Conversion.loUint16(OAD_CONN_INTERVAL40),
+                Conversion.hiUint16(OAD_CONN_INTERVAL40), 0, 0, Conversion.loUint16(OAD_SUPERVISION_TIMEOUT500), Conversion.hiUint16(OAD_SUPERVISION_TIMEOUT500)};
         mCharConnReq.setValue(value);
         mLeService.writeCharacteristic(mCharConnReq);
     }
@@ -210,13 +278,17 @@ public class DeviceHomeActivity extends BaseActivity {
     }
 
     @Override
+    protected void onStop() {
+        super.onStop();
+    }
+
+    @Override
     protected void onDestroy() {
         //取消广播
-        if (BleBroadcastReceiver!=null){
+        if (BleBroadcastReceiver != null) {
             unregisterReceiver(BleBroadcastReceiver);
         }
         mLeService.disconnect(bleDevice.getAddress());
-
         super.onDestroy();
     }
 
@@ -225,7 +297,7 @@ public class DeviceHomeActivity extends BaseActivity {
      * 启动oad
      */
     private void startProgramming() {
-        Log.e(oadTag,"启动oad");
+        Log.e(oadTag, "启动oad");
         mProgramming = true;
         packetsSent = 0;
         mCharIdentify.setValue(mFileImgHdr.getRequest());
@@ -252,11 +324,12 @@ public class DeviceHomeActivity extends BaseActivity {
 
         mLeService.setCharacteristicNotification(mCharBlock, false);
         if (mProgInfo.iBlocks == mProgInfo.nBlocks) {
-            Log.e(oadTag,"Programming complete!\n");
+            Log.e(oadTag, "Programming complete!\n");
         } else {
             Log.e(oadTag, "Programming cancelled!\n");
         }
     }
+
     /**
      * 加载image
      *
@@ -308,7 +381,7 @@ public class DeviceHomeActivity extends BaseActivity {
 
         txt = String.format("Time: %d / %d sec", sec, (int) timeEstimate);
         txt += String.format("    Bytes: %d (%d/sec)", mProgInfo.iBytes, byteRate);
-        Log.e(oadTag,txt);
+        Log.e(oadTag, txt);
     }
 
     private class ProgTimerTask extends TimerTask {
@@ -431,6 +504,7 @@ public class DeviceHomeActivity extends BaseActivity {
 
     /**
      * 设置IntentFilter
+     *
      * @return
      */
     private IntentFilter SettingIntentFilter() {
@@ -448,31 +522,32 @@ public class DeviceHomeActivity extends BaseActivity {
     /**
      * Ble的广播
      */
-    private BroadcastReceiver BleBroadcastReceiver=new BroadcastReceiver() {
+    private BroadcastReceiver BleBroadcastReceiver = new BroadcastReceiver() {
         @Override
         public void onReceive(Context context, Intent intent) {
             String action = intent.getAction();
-            if (BluetoothLeService.ACTION_GATT_CONNECTED.equals(action)){//连接成功
-                tv_connect_state.setText("连接成功");
+            if (BluetoothLeService.ACTION_GATT_CONNECTED.equals(action)) {//连接成功
+                tv_connect_state.setText("连接成功1");
+                bleGatt=BluetoothLeService.getBtGatt();
                 discoverServices(bleGatt);
-            }else if (BluetoothLeService.ACTION_GATT_DISCONNECTED.equals(action)){ //连接断开
+            } else if (BluetoothLeService.ACTION_GATT_DISCONNECTED.equals(action)) { //连接断开
                 tv_connect_state.setText("连接断开");
-            }else if(BluetoothLeService.ACTION_GATT_SERVICES_DISCOVERED.equals(action)){// Service 发现完毕
+            } else if (BluetoothLeService.ACTION_GATT_SERVICES_DISCOVERED.equals(action)) {// Service 发现完毕
 
                 // Gatt的连接状态
                 int status = intent.getIntExtra(BluetoothLeService.EXTRA_STATUS,
                         BluetoothGatt.GATT_SUCCESS);
-                if (status == BluetoothGatt.GATT_SUCCESS){
+                if (status == BluetoothGatt.GATT_SUCCESS) {
                     //获得到此蓝牙设备的所有支持的Service
-                    serviceList=mLeService.getSupportedGattServices();
-                    if (serviceList!=null){
-                        tv_connect_state.append("serviceList:"+serviceList.size());
+                    serviceList = mLeService.getSupportedGattServices();
+                    if (serviceList != null) {
+                        tv_connect_state.append("serviceList:" + serviceList.size());
                     }
                     //初始化OAD
                     initOAD(serviceList);
                 }
 
-            }else if (BluetoothLeService.ACTION_DATA_NOTIFY.equals(action)) {
+            } else if (BluetoothLeService.ACTION_DATA_NOTIFY.equals(action)) {
                 byte[] value = intent.getByteArrayExtra(BluetoothLeService.EXTRA_DATA);
                 String uuidStr = intent.getStringExtra(BluetoothLeService.EXTRA_UUID);
 
@@ -512,7 +587,7 @@ public class DeviceHomeActivity extends BaseActivity {
             return;
         //  mProgInfo.nBlocks=(short)bufferLenth;
 
-        Log.e(oadTag,"mProgInfo.iBlocks:"+mProgInfo.iBlocks+"mProgInfo.nBlocks:"+mProgInfo.nBlocks);
+        Log.e(oadTag, "mProgInfo.iBlocks:" + mProgInfo.iBlocks + "mProgInfo.nBlocks:" + mProgInfo.nBlocks);
         if (mProgInfo.iBlocks < mProgInfo.nBlocks) {
             mProgramming = true;
             String msg = new String();
@@ -532,18 +607,18 @@ public class DeviceHomeActivity extends BaseActivity {
                 mProgInfo.iBlocks++;
                 mProgInfo.iBytes += OAD_BLOCK_SIZE;
 
-                int total=(mProgInfo.iBlocks * 100) / mProgInfo.nBlocks;
+                int total = (mProgInfo.iBlocks * 100) / mProgInfo.nBlocks;
 
-                Log.e(oadTag,"已上传总量："+total+"%");
+                Log.e(oadTag, "已上传总量：" + total + "%");
                 if (mProgInfo.iBlocks == mProgInfo.nBlocks) {
-                    Log.e(oadTag,"OAD完毕");
+                    Log.e(oadTag, "OAD完毕");
                 }
             } else {
                 mProgramming = false;
                 msg = "GATT writeCharacteristic failed\n";
             }
             if (!success) {
-                Log.e(oadTag,msg);
+                Log.e(oadTag, msg);
             }
         } else {
             mProgramming = false;
