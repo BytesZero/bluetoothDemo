@@ -3,6 +3,7 @@ package com.zsl.bluetoothdemo;
 import android.app.Activity;
 import android.bluetooth.BluetoothAdapter;
 import android.bluetooth.BluetoothDevice;
+import android.bluetooth.BluetoothManager;
 import android.content.Intent;
 import android.net.Uri;
 import android.os.Bundle;
@@ -17,8 +18,6 @@ import android.widget.Toast;
 
 import com.zsl.bluetoothdemo.adapter.DevicesAdapter;
 import com.zsl.bluetoothdemo.base.BaseActivity;
-import com.zsl.bluetoothdemo.utils.ble.BleWrapper;
-import com.zsl.bluetoothdemo.utils.ble.BleWrapperUiCallbacks;
 import com.zsl.bluetoothdemo.utils.ble.oad.BluetoothLeService;
 
 import java.util.ArrayList;
@@ -33,43 +32,35 @@ public class MainActivity extends BaseActivity {
 
     //蓝牙设别的list
     private List<MyBluetoothDevice> bluetoothDevices;
-
+    DevicesAdapter devicesAdapter;
 
     ListView lv_show;
     Button bt_state;
-    private BluetoothLeService mBluetoothLeService = null;
-    private DevicesAdapter devicesAdapter;
-    int mSteps = 0;
-
-    //    BleWrapper 对象
-    private BleWrapper mBleWrapper = null;
     //    是否启动自动扫描
     private boolean mScanning = false;
     //    handler
     private Handler mHandler = new Handler();
 
 
+    //蓝牙管理
+    private static BluetoothManager mBluetoothManager;
+    private BluetoothAdapter mBtAdapter = null;
+    private BluetoothDevice mBluetoothDevice = null;
+    private BluetoothLeService mBluetoothLeService = null;
+
+    private boolean mBtAdapterEnabled = false;
+    private boolean mBleSupported = true;
+    private boolean mInitialised = false;
+
+
     @Override
     protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
         setContentView(R.layout.activity_main);
-
-        mBluetoothLeService = BluetoothLeService.getInstance();
-        // 创建一个BleWrapper然后返回扫描到的设备
-        mBleWrapper = new BleWrapper(this, new BleWrapperUiCallbacks.Null() {
-            @Override
-            public void uiDeviceFound(final BluetoothDevice device, final int rssi, final byte[] record) {
-                handleFoundDevice(device, rssi, record);
-            }
-        });
-
-        if (mBleWrapper.checkBleHardwareAvailable() == false) {
-            bleMissing();
-        }
-
         initView();
-    }
+        initData();
 
+    }
 
     private void initView() {
         bt_state = (Button) findViewById(R.id.main_bt_state);
@@ -101,39 +92,27 @@ public class MainActivity extends BaseActivity {
         });
     }
 
-    @Override
-    protected void onResume() {
-        super.onResume();
-        // 检查是否打开了蓝牙
-        if (mBleWrapper.isBtEnabled() == false) {
-            //如果没有打开通知用户打开蓝牙
-            Intent enableBtIntent = new Intent(BluetoothAdapter.ACTION_REQUEST_ENABLE);
-            startActivityForResult(enableBtIntent, ENABLE_BT_REQUEST_ID);
-            // 在 onActivityResult 中检查用户是否打开了蓝牙功能
-        }
 
-        // 初始化 BleWrapper 对象
-        mBleWrapper.initialize();
-
+    private void initData() {
         bluetoothDevices = new ArrayList<MyBluetoothDevice>();
         devicesAdapter = new DevicesAdapter(this, bluetoothDevices);
         lv_show.setAdapter(devicesAdapter);
 
-        // 是否启动自动烧卖哦
-        mScanning = true;
-        // 添加扫描超时
-        addScanningTimeout();
-        //启动扫描
-        mBleWrapper.startScanning();
+    }
+
+
+
+    @Override
+    protected void onResume() {
+        super.onResume();
+        scanLeDevice(true);
+
     }
 
     @Override
     protected void onPause() {
         super.onPause();
-        mScanning = false;
-
-        mBleWrapper.stopScanning();
-        bluetoothDevices.clear();
+        scanLeDevice(false);
     }
 
     @Override
@@ -160,7 +139,18 @@ public class MainActivity extends BaseActivity {
         int id = item.getItemId();
 
         if (id == R.id.action_settings) {
-            mBleWrapper.startScanning();
+            if (!mInitialised) {
+                mBluetoothLeService = BluetoothLeService.getInstance();
+                mBluetoothManager = mBluetoothLeService.getBtManager();
+                mBtAdapter = mBluetoothManager.getAdapter();
+                mBtAdapterEnabled = mBtAdapter.isEnabled();
+                    Intent enableIntent = new Intent(BluetoothAdapter.ACTION_REQUEST_ENABLE);
+                    startActivityForResult(enableIntent, ENABLE_BT_REQUEST_ID);
+                }
+                mInitialised = true;
+            }
+            if (!mBtAdapterEnabled) {
+            scanLeDevice(true);
             return true;
         }
 
@@ -218,15 +208,66 @@ public class MainActivity extends BaseActivity {
         Runnable timeout = new Runnable() {
             @Override
             public void run() {
-                if (mBleWrapper == null) return;
-                mScanning = false;
-                mBleWrapper.stopScanning();
-                invalidateOptionsMenu();
+
             }
         };
         mHandler.postDelayed(timeout, SCANNING_TIMEOUT);
     }
 
+    /**
+     * 扫描蓝牙设备
+     * @param enable
+     * @return
+     */
+    private boolean scanLeDevice(boolean enable) {
+        if (mBtAdapter==null){
+            return false;
+        }
+        if (enable) {
+            mScanning = mBtAdapter.startLeScan(mLeScanCallback);
+        } else {
+            mScanning = false;
+            mBtAdapter.stopLeScan(mLeScanCallback);
+        }
+        return mScanning;
+    }
+
+    /**
+     * 扫描回调
+     */
+    private BluetoothAdapter.LeScanCallback mLeScanCallback = new BluetoothAdapter.LeScanCallback() {
+
+        public void onLeScan(final BluetoothDevice device, final int rssi,
+                             byte[] scanRecord) {
+            runOnUiThread(new Runnable() {
+                public void run() {
+                    if (!deviceInfoExists(device.getAddress())) {
+                        // 新设备
+                        MyBluetoothDevice myBluetoothDevice = new MyBluetoothDevice(device, null);
+                        bluetoothDevices.add(myBluetoothDevice);
+                        devicesAdapter.notifyDataSetChanged();
+                    }
+                }
+//				}
+
+            });
+        }
+    };
+
+    /**
+     * 列表中是否存在此设备
+     * @param address
+     * @return
+     */
+    private boolean deviceInfoExists(String address) {
+        for (int i = 0; i < bluetoothDevices.size(); i++) {
+            if (bluetoothDevices.get(i).getBluetoothDevice().getAddress()
+                    .equals(address)) {
+                return true;
+            }
+        }
+        return false;
+    }
     /**
      * 用户没有打开蓝牙
      */

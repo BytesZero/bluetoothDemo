@@ -9,6 +9,7 @@ import android.content.Context;
 import android.content.Intent;
 import android.content.IntentFilter;
 import android.os.Bundle;
+import android.util.Log;
 import android.view.View;
 import android.widget.Button;
 import android.widget.TextView;
@@ -18,8 +19,12 @@ import com.zsl.bluetoothdemo.base.BaseActivity;
 import com.zsl.bluetoothdemo.utils.ble.oad.BluetoothLeService;
 import com.zsl.bluetoothdemo.utils.ble.oad.Conversion;
 
+import java.io.IOException;
+import java.io.InputStream;
 import java.util.ArrayList;
 import java.util.List;
+import java.util.Timer;
+import java.util.TimerTask;
 import java.util.UUID;
 
 /**
@@ -58,6 +63,39 @@ public class DeviceHomeActivity extends BaseActivity {
     List <BluetoothGattService> serviceList=new ArrayList<BluetoothGattService>();
 
 
+    // Housekeeping
+    private boolean mServiceOk = false;
+    private boolean mProgramming = false;
+
+    //fileName
+//    String filename="APP_OAD_1.1.bin";
+    String filename="APP_OAD_1.0.bin";
+    String oadTag="oadTag";
+
+    private static final int OAD_BLOCK_SIZE = 16;
+    private static final int HAL_FLASH_WORD_SIZE = 4;
+    private static final int OAD_BUFFER_SIZE = 2 + OAD_BLOCK_SIZE;
+    private static final long TIMER_INTERVAL = 1000;
+
+    // Programming parameters
+    private static final short OAD_CONN_INTERVAL = 6; // 15 milliseconds
+    private static final short OAD_SUPERVISION_TIMEOUT = 50; // 500 milliseconds
+
+    private ImgHdr mFileImgHdr;
+    private ImgHdr mTargImgHdr;
+    private Timer mTimer = null;
+    private ProgInfo mProgInfo = new ProgInfo();
+    private TimerTask mTimerTask = null;
+    private int packetsSent = 0;
+    //image
+    private byte[] mFileBuffer;
+    private final byte[] mOadBuffer = new byte[OAD_BUFFER_SIZE];
+    //长度
+    private int bufferLenth=0;
+
+    private boolean slowAlgo = true;
+
+
     @Override
     protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
@@ -80,12 +118,13 @@ public class DeviceHomeActivity extends BaseActivity {
         bt_oad.setOnClickListener(new View.OnClickListener() {
             @Override
             public void onClick(View v) {
-
+                startProgramming();
             }
         });
     }
 
     private void initData() {
+        tv_connect_state.setText("正在连接。。。");
         //注册广播
         registerReceiver(BleBroadcastReceiver, SettingIntentFilter());
         //获得到BluetoothLeService对象
@@ -94,13 +133,16 @@ public class DeviceHomeActivity extends BaseActivity {
         boolean isConnect=mLeService.connect(bleDevice.getAddress());
         if (isConnect){
             Toast.makeText(this, "连接成功", Toast.LENGTH_SHORT).show();
+            //获得Gatt服务
+            bleGatt = BluetoothLeService.getBtGatt();
+            //扫描服务
+            discoverServices(bleGatt);
         }else{
             Toast.makeText(this,"连接失败",Toast.LENGTH_SHORT).show();
         }
-        //获得Gatt服务
-        bleGatt = BluetoothLeService.getBtGatt();
-        //扫描服务
-        discoverServices(bleGatt);
+
+
+
     }
 
     /**
@@ -118,14 +160,42 @@ public class DeviceHomeActivity extends BaseActivity {
                 mConnControlService=mGattService;
             }
         }
+        // 获得到对应Service的Characteristics list
+        mCharListOad = mOadService.getCharacteristics();
+        mCharListCc = mConnControlService.getCharacteristics();
+        //验证Characteristics list
+        mServiceOk = mCharListOad.size() == 2 && mCharListCc.size() >= 3;
+        if (mServiceOk) {
+            mCharIdentify = mCharListOad.get(0);
+            mCharBlock = mCharListOad.get(1);
+            mCharBlock.setWriteType(BluetoothGattCharacteristic.WRITE_TYPE_NO_RESPONSE);
+            mCharConnReq = mCharListCc.get(1);
+        }
+
+        mLeService.setCharacteristicNotification(mCharBlock, true);
+        setConnectionParameters();
+        loadFile(filename, false);
     }
 
+    /**
+     * 扫描Service
+     * @param bluetoothGatt
+     */
     private void discoverServices(BluetoothGatt bluetoothGatt) {
         if (bluetoothGatt.discoverServices()) {
             serviceList.clear();
-        } else {
-
         }
+    }
+
+    /**
+     * 发送连接间隔
+     */
+    private void setConnectionParameters() {
+        // Make sure connection interval is long enough for OAD (Android default connection interval is 7.5 ms)
+        byte[] value = {Conversion.loUint16(OAD_CONN_INTERVAL), Conversion.hiUint16(OAD_CONN_INTERVAL), Conversion.loUint16(OAD_CONN_INTERVAL),
+                Conversion.hiUint16(OAD_CONN_INTERVAL), 0, 0, Conversion.loUint16(OAD_SUPERVISION_TIMEOUT), Conversion.hiUint16(OAD_SUPERVISION_TIMEOUT)};
+        mCharConnReq.setValue(value);
+        mLeService.writeCharacteristic(mCharConnReq);
     }
 
     @Override
@@ -150,45 +220,103 @@ public class DeviceHomeActivity extends BaseActivity {
         super.onDestroy();
     }
 
-    //    /**
-//     * 加载image
-//     *
-//     * @param filepath
-//     * @param isAsset
-//     * @return
-//     */
-//    private boolean loadFile(String filepath, boolean isAsset) {
-//        boolean fSuccess = true;
-//        byte[] mBuffer;
-//        try {
-//            // Read the file raw into a buffer
-//            InputStream stream = getAssets().open(filepath);
-//            mBuffer = new byte[stream.available()];
-//            stream.read(mBuffer);
-//            stream.close();
-//        } catch (IOException e) {
-//            Log.e(oadTag, "File open failed: " + filepath + "\n");
-//            return false;
-//        }
-//        bufferLenth = mBuffer.length / 16 + 1;
-//        //赋值到全局mFileBuffer
-//        mFileBuffer = mBuffer;
-//        mFileImgHdr = new ImgHdr(mBuffer);
-//
-//        // Log
-//        Log.e(oadTag, "Image 路径:" + filepath + "\n");
-//
-//        return fSuccess;
-//    }
-//
-//
-//
-//    private class ProgTimerTask extends TimerTask {
-//        @Override
-//        public void run() {
-//            mProgInfo.iTimeElapsed += TIMER_INTERVAL;
-//        }
-//    }
+
+    /**
+     * 启动oad
+     */
+    private void startProgramming() {
+        Log.e(oadTag,"启动oad");
+        mProgramming = true;
+        packetsSent = 0;
+        mCharIdentify.setValue(mFileImgHdr.getRequest());
+        mLeService.writeCharacteristic(mCharIdentify);
+
+        // Initialize stats
+        mProgInfo.reset();
+        mTimer = new Timer();
+        mTimerTask = new ProgTimerTask();
+        mTimer.scheduleAtFixedRate(mTimerTask, 0, TIMER_INTERVAL);
+    }
+
+    /**
+     * 停止oad
+     */
+    private void stopProgramming() {
+        Log.e(oadTag, "停止oad");
+        mTimer.cancel();
+        mTimer.purge();
+        mTimerTask.cancel();
+        mTimerTask = null;
+
+        mProgramming = false;
+
+        mLeService.setCharacteristicNotification(mCharBlock, false);
+        if (mProgInfo.iBlocks == mProgInfo.nBlocks) {
+            Log.e(oadTag,"Programming complete!\n");
+        } else {
+            Log.e(oadTag, "Programming cancelled!\n");
+        }
+    }
+    /**
+     * 加载image
+     *
+     * @param filepath
+     * @param isAsset
+     * @return
+     */
+    private boolean loadFile(String filepath, boolean isAsset) {
+        boolean fSuccess = true;
+        byte[] mBuffer;
+        try {
+            // Read the file raw into a buffer
+            InputStream stream = getAssets().open(filepath);
+            mBuffer = new byte[stream.available()];
+            stream.read(mBuffer);
+            stream.close();
+        } catch (IOException e) {
+            Log.e(oadTag, "File open failed: " + filepath + "\n");
+            return false;
+        }
+        bufferLenth = mBuffer.length / 16 + 1;
+        //赋值到全局mFileBuffer
+        mFileBuffer = mBuffer;
+        mFileImgHdr = new ImgHdr(mBuffer);
+
+        displayStats();
+        // Log
+        Log.e(oadTag, "Image 路径:" + filepath + "\n");
+
+        return fSuccess;
+    }
+
+    /**
+     * 显示转台
+     */
+    private void displayStats() {
+        String txt;
+        int byteRate;
+        int sec = mProgInfo.iTimeElapsed / 1000;
+        if (sec > 0) {
+            byteRate = mProgInfo.iBytes / sec;
+        } else {
+            byteRate = 0;
+            return;
+        }
+        float timeEstimate;
+
+        timeEstimate = ((float) (mFileImgHdr.len * 4) / (float) mProgInfo.iBytes) * sec;
+
+        txt = String.format("Time: %d / %d sec", sec, (int) timeEstimate);
+        txt += String.format("    Bytes: %d (%d/sec)", mProgInfo.iBytes, byteRate);
+        Log.e(oadTag,txt);
+    }
+
+    private class ProgTimerTask extends TimerTask {
+        @Override
+        public void run() {
+            mProgInfo.iTimeElapsed += TIMER_INTERVAL;
+        }
+    }
 
 
     private class ImgHdr {
@@ -296,7 +424,7 @@ public class DeviceHomeActivity extends BaseActivity {
             iBytes = 0;
             iBlocks = 0;
             iTimeElapsed = 0;
-//            nBlocks = (short) (mFileImgHdr.len / (OAD_BLOCK_SIZE / HAL_FLASH_WORD_SIZE));
+            nBlocks = (short) (mFileImgHdr.len / (OAD_BLOCK_SIZE / HAL_FLASH_WORD_SIZE));
         }
     }
 
@@ -307,6 +435,8 @@ public class DeviceHomeActivity extends BaseActivity {
      */
     private IntentFilter SettingIntentFilter() {
         final IntentFilter fi = new IntentFilter();
+        fi.addAction(BluetoothLeService.ACTION_GATT_CONNECTED);
+        fi.addAction(BluetoothLeService.ACTION_GATT_DISCONNECTED);
         fi.addAction(BluetoothLeService.ACTION_GATT_SERVICES_DISCOVERED);
         fi.addAction(BluetoothLeService.ACTION_DATA_NOTIFY);
         fi.addAction(BluetoothLeService.ACTION_DATA_WRITE);
@@ -322,8 +452,13 @@ public class DeviceHomeActivity extends BaseActivity {
         @Override
         public void onReceive(Context context, Intent intent) {
             String action = intent.getAction();
-            // Service 发现完毕
-            if (BluetoothLeService.ACTION_GATT_SERVICES_DISCOVERED==action){
+            if (BluetoothLeService.ACTION_GATT_CONNECTED.equals(action)){//连接成功
+                tv_connect_state.setText("连接成功");
+                discoverServices(bleGatt);
+            }else if (BluetoothLeService.ACTION_GATT_DISCONNECTED.equals(action)){ //连接断开
+                tv_connect_state.setText("连接断开");
+            }else if(BluetoothLeService.ACTION_GATT_SERVICES_DISCOVERED.equals(action)){// Service 发现完毕
+
                 // Gatt的连接状态
                 int status = intent.getIntExtra(BluetoothLeService.EXTRA_STATUS,
                         BluetoothGatt.GATT_SUCCESS);
@@ -337,7 +472,99 @@ public class DeviceHomeActivity extends BaseActivity {
                     initOAD(serviceList);
                 }
 
+            }else if (BluetoothLeService.ACTION_DATA_NOTIFY.equals(action)) {
+                byte[] value = intent.getByteArrayExtra(BluetoothLeService.EXTRA_DATA);
+                String uuidStr = intent.getStringExtra(BluetoothLeService.EXTRA_UUID);
+
+                if (uuidStr.equals(mCharIdentify.getUuid().toString())) {
+
+                }
+                if (uuidStr.equals(mCharBlock.getUuid().toString())) {
+                    // Block check here :
+                    String block = String.format("%02x%02x", value[1], value[0]);
+
+                    programBlock();
+
+//                    if (slowAlgo == true) {
+//                        programBlock();
+//                    } else {
+//                        if (packetsSent != 0) packetsSent--;
+//                        if (packetsSent > 10) return;
+//                        while (packetsSent < fastAlgoMaxPackets) {
+//                            waitABit();
+//                            programBlock();
+//                        }
+//                    }
+                }
+
+            } else if (BluetoothLeService.ACTION_DATA_WRITE.equals(action)) {
+                int status = intent.getIntExtra(BluetoothLeService.EXTRA_STATUS, BluetoothGatt.GATT_SUCCESS);
+                if (status != BluetoothGatt.GATT_SUCCESS) {
+                    Toast.makeText(context, "GATT error: status=" + status, Toast.LENGTH_SHORT).show();
+                }
             }
         }
     };
+
+
+    private void programBlock() {
+        if (!mProgramming)
+            return;
+        //  mProgInfo.nBlocks=(short)bufferLenth;
+
+        Log.e(oadTag,"mProgInfo.iBlocks:"+mProgInfo.iBlocks+"mProgInfo.nBlocks:"+mProgInfo.nBlocks);
+        if (mProgInfo.iBlocks < mProgInfo.nBlocks) {
+            mProgramming = true;
+            String msg = new String();
+
+            //Prepare block
+            mOadBuffer[0] = Conversion.loUint16(mProgInfo.iBlocks);
+            mOadBuffer[1] = Conversion.hiUint16(mProgInfo.iBlocks);
+            System.arraycopy(mFileBuffer, mProgInfo.iBytes, mOadBuffer, 2, OAD_BLOCK_SIZE);
+
+            // Send block
+            mCharBlock.setValue(mOadBuffer);
+            boolean success = mLeService.writeCharacteristicNonBlock(mCharBlock);
+            Log.d("FwUpdateActivity_CC26xx", "Sent block :" + mProgInfo.iBlocks);
+            if (success) {
+                // Update stats
+                packetsSent++;
+                mProgInfo.iBlocks++;
+                mProgInfo.iBytes += OAD_BLOCK_SIZE;
+
+                int total=(mProgInfo.iBlocks * 100) / mProgInfo.nBlocks;
+
+                Log.e(oadTag,"已上传总量："+total+"%");
+                if (mProgInfo.iBlocks == mProgInfo.nBlocks) {
+                    Log.e(oadTag,"OAD完毕");
+                }
+            } else {
+                mProgramming = false;
+                msg = "GATT writeCharacteristic failed\n";
+            }
+            if (!success) {
+                Log.e(oadTag,msg);
+            }
+        } else {
+            mProgramming = false;
+        }
+        if ((mProgInfo.iBlocks % 100) == 0) {
+            // Display statistics each 100th block
+            runOnUiThread(new Runnable() {
+                public void run() {
+                    displayStats();
+                }
+            });
+        }
+
+        if (!mProgramming) {
+            runOnUiThread(new Runnable() {
+                public void run() {
+                    displayStats();
+                    stopProgramming();
+                }
+            });
+        }
+    }
+
 }
