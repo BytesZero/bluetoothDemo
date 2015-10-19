@@ -68,8 +68,8 @@ public class DeviceHomeActivity extends BaseActivity {
     private boolean mProgramming = false;
 
     //fileName
-//    String filename="APP_OAD_1.1.bin";
-    String filename="APP_OAD_1.0.bin";
+    String filename="APP_OAD_1.1.bin";
+//    String filename="APP_OAD_1.0.bin";
     String oadTag="oadTag";
 
     private static final int OAD_BLOCK_SIZE = 16;

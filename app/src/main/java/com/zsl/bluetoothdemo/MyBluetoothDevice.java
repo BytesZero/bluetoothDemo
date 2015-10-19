@@ -11,15 +11,17 @@ import com.zsl.bluetoothdemo.utils.ble.ParsedAd;
 public class MyBluetoothDevice {
 
     private BluetoothDevice bluetoothDevice;
+    private String address;
     private ParsedAd ParsedAd;
 
     public MyBluetoothDevice() {
 
     }
 
-    public MyBluetoothDevice(BluetoothDevice bluetoothDevice, com.zsl.bluetoothdemo.utils.ble.ParsedAd parsedAd) {
+    public MyBluetoothDevice(BluetoothDevice bluetoothDevice, com.zsl.bluetoothdemo.utils.ble.ParsedAd parsedAd,String address) {
         this.bluetoothDevice = bluetoothDevice;
         ParsedAd = parsedAd;
+        this.address=address;
     }
 
     public BluetoothDevice getBluetoothDevice() {
@@ -38,10 +40,19 @@ public class MyBluetoothDevice {
         ParsedAd = parsedAd;
     }
 
+    public String getAddress() {
+        return address;
+    }
+
+    public void setAddress(String address) {
+        this.address = address;
+    }
+
     @Override
     public String toString() {
         return "MyBluetoothDevice{" +
                 "bluetoothDevice=" + bluetoothDevice +
+                ", address='" + address + '\'' +
                 ", ParsedAd=" + ParsedAd +
                 '}';
     }

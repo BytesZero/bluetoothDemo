@@ -158,48 +158,6 @@ public class MainActivity extends BaseActivity {
     }
 
 
-    /**
-     * 添加设备到列表
-     *
-     * @param device
-     * @param rssi
-     * @param scanRecord
-     */
-    private void handleFoundDevice(final BluetoothDevice device,
-                                   final int rssi,
-                                   final byte[] scanRecord) {
-
-
-//        if (device.getName().equals("Misdk1")) {
-        if (true) {
-//            final ParsedAd parsedAd = ParsedAd.parseData(scanRecord);
-//            Map<Integer, String> stringMap = BleUtils.ParseRecord(scanRecord);
-//            Log.i("DEBUG", stringMap.toString());
-//            Log.i("DEBUG", "======scanRecord:" + scanRecord.toString());
-//            String msg = "msg======scanRecord:";
-//            if (scanRecord != null && scanRecord.length > 0) {
-//                final StringBuilder stringBuilder = new StringBuilder(scanRecord.length);
-//                for (byte byteChar : scanRecord)
-//                    stringBuilder.append(String.format("%08X ", byteChar));
-//                msg += stringBuilder.toString();
-//            }
-//            Log.i("DEBUG", msg);
-//            Log.i("DEBUG", "parsedAd===scanRecord:" + parsedAd.toString());
-
-            runOnUiThread(new Runnable() {
-                @Override
-                public void run() {
-                    if (bluetoothDevices.contains(device) == false) {
-                        MyBluetoothDevice myBluetoothDevice = new MyBluetoothDevice(device, null);
-                        bluetoothDevices.add(myBluetoothDevice);
-                        devicesAdapter.notifyDataSetChanged();
-                    }
-                }
-            });
-        }
-
-    }
-
 
     /**
      * 添加扫描超时
@@ -243,9 +201,17 @@ public class MainActivity extends BaseActivity {
                 public void run() {
                     if (!deviceInfoExists(device.getAddress())) {
                         // 新设备
-                        MyBluetoothDevice myBluetoothDevice = new MyBluetoothDevice(device, null);
+                        MyBluetoothDevice myBluetoothDevice = new MyBluetoothDevice(device, null, device.getAddress());
                         bluetoothDevices.add(myBluetoothDevice);
                         devicesAdapter.notifyDataSetChanged();
+                    } else {
+                        String address =device.getAddress();
+                        for (MyBluetoothDevice bluetoothDevice : bluetoothDevices) {
+                            if (bluetoothDevice.getAddress().equals(address)) {
+                                bluetoothDevice.setAddress(address);
+                                devicesAdapter.notifyDataSetChanged();
+                            }
+                        }
                     }
                 }
 //				}
