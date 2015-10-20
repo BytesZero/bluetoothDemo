@@ -104,6 +104,8 @@ public class DeviceHomeActivity extends BaseActivity {
     private boolean slowAlgo = true;
 
 
+    private static DeviceHomeActivity mDeviceHomeActivity;
+
     @Override
     protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
@@ -157,7 +159,7 @@ public class DeviceHomeActivity extends BaseActivity {
     }
 
     private void initData() {
-
+        mDeviceHomeActivity=this;
         myMainActivity = MainActivity.getInstance();
 
 
@@ -170,6 +172,22 @@ public class DeviceHomeActivity extends BaseActivity {
         bleDevice = getIntent().getParcelableExtra("BluetoothDevice");
 
         connectDevice();
+    }
+
+    /**
+     * 获得到ServiceList
+     * @return
+     */
+    public List<BluetoothGattService> getServiceList() {
+        return serviceList;
+    }
+
+    /**
+     * 获得到DeviceHomeActivity对象
+     * @return
+     */
+    public static DeviceHomeActivity getmDeviceHomeActivity() {
+        return mDeviceHomeActivity;
     }
 
     private void connectDevice() {

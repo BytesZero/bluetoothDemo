@@ -945,4 +945,32 @@ public class BluetoothLeService extends Service {
         }
         return -3; // Set notification to android was wrong ...
     }
+    BluetoothGattCharacteristic dataC,configC;
+
+    /**
+     * 配置Service
+     * @param dataC
+     * @param configC
+     */
+    public void setConfigureService(BluetoothGattCharacteristic dataC,BluetoothGattCharacteristic configC){
+        this.dataC=dataC;
+        this.configC=configC;
+//        configureService();
+        enableService();
+//        deConfigureService();
+//        disableService();
+    }
+
+//    public void configureService() {
+//        int error = this.setCharacteristicNotification(this.dataC, true);
+//    }
+//    public void deConfigureService() {
+//        int error = this.setCharacteristicNotification(this.dataC, false);
+//    }
+    public void enableService () {
+        int error = this.writeCharacteristic(this.dataC, (byte) 0x01);
+    }
+    public void disableService () {
+        int error = this.writeCharacteristic(this.dataC, (byte) 0x00);
+    }
 }
