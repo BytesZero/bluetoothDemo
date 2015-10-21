@@ -183,7 +183,6 @@ public class HistoryDataActivity extends BaseActivity{
                 Log.e(logTag,"uuidStr:"+uuidStr+":mCharNotify.getUuid():"+mCharNotify.getUuid());
                 if (uuidStr.equals(mCharNotify.getUuid().toString())){
                     Log.e(logTag, value.toString());
-//                  sendCmd((byte) 0xa1);
                     //read block
                     mLeService.readCharacteristic(mCharBlock);
                 }
@@ -198,7 +197,9 @@ public class HistoryDataActivity extends BaseActivity{
                 String uuidStr = intent.getStringExtra(BluetoothLeService.EXTRA_UUID);
                 if (uuidStr.equals(mCharBlock.getUuid().toString())) {
                     if (!isFirstSetLength){//读取header
+                        //读取length
                         length=Conversion.buildUint16(value[1],value[0]);
+                        //读取crc
                         crc=Conversion.buildUint16(value[3],value[2]);
                         isFirstSetLength=true;
                         buffer=new byte[length*BLOCK_SIZE];
@@ -208,6 +209,7 @@ public class HistoryDataActivity extends BaseActivity{
                     }
                     if (number<length) {
                         Log.e(logTag, "number:" +number);
+                        //读取下一个block
                         sendCmd((byte) 0xa1, Conversion.loUint16(number), Conversion.hiUint16(number));
                     }else{
                         Log.e(logTag,"buffer:"+ Arrays.toString(buffer));

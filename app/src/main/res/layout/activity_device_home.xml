@@ -9,6 +9,12 @@
     <Button
         android:layout_width="wrap_content"
         android:layout_height="wrap_content"
+        android:text="实时数据传输"
+        android:id="@+id/devices_bt_realtime" android:layout_gravity="center_horizontal"/>
+
+    <Button
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
         android:text="历史数据传输"
         android:id="@+id/devices_bt_history" android:layout_gravity="center_horizontal"/>
 

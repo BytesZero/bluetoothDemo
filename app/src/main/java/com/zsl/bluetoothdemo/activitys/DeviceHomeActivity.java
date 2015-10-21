@@ -43,7 +43,7 @@ public class DeviceHomeActivity extends BaseActivity {
 
 
     TextView tv_connect_state;
-    Button bt_oad, bt_oad_stop, bt_connect,bt_history;
+    Button bt_oad, bt_oad_stop, bt_connect,bt_history,bt_realtime;
     //btDevice
     BluetoothDevice bleDevice;
 
@@ -125,6 +125,8 @@ public class DeviceHomeActivity extends BaseActivity {
         bt_connect = (Button) findViewById(R.id.devices_bt_connect);
 
         bt_history= (Button) findViewById(R.id.devices_bt_history);
+
+        bt_realtime= (Button) findViewById(R.id.devices_bt_realtime);
     }
 
     private void initEvent() {
@@ -154,6 +156,13 @@ public class DeviceHomeActivity extends BaseActivity {
             @Override
             public void onClick(View v) {
                 baseStartActivity(HistoryDataActivity.class);
+            }
+        });
+
+        bt_realtime.setOnClickListener(new View.OnClickListener() {
+            @Override
+            public void onClick(View v) {
+                baseStartActivity(RealTimeDataActivity.class);
             }
         });
     }

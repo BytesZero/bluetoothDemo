@@ -34,6 +34,8 @@
 
         <!-- 历史数据-->
         <activity android:name=".activitys.HistoryDataActivity"/>
+        <!-- 实时数据-->
+        <activity android:name=".activitys.RealTimeDataActivity"/>
 
         <!-- 蓝牙的Service-->
         <service android:name=".utils.ble.oad.BluetoothLeService" android:enabled="true"/>
