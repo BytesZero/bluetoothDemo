@@ -1,7 +1,32 @@
 <?xml version="1.0" encoding="utf-8"?>
-<LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
-              android:orientation="vertical"
-              android:layout_width="match_parent"
-              android:layout_height="match_parent">
+<LinearLayout
+    xmlns:android="http://schemas.android.com/apk/res/android"
+    android:layout_width="match_parent"
+    android:layout_height="match_parent"
+    android:orientation="vertical">
+    <TextView
+        android:id="@+id/realtime_tv_message"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:text="－－"/>
+    <Button
+        android:id="@+id/realtime_bt_read_data"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:text="读取数据"/>
+
+    <Button
+        android:id="@+id/realtime_bt_read_battery"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:text="当前电量"/>
+
+    <Button
+        android:id="@+id/realtime_bt_setconfig"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:text="开启数据同步"/>
+
+
 
 </LinearLayout>
