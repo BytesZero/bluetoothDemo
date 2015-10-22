@@ -593,16 +593,16 @@ public class BluetoothLeService extends Service {
 		if (connectionState == BluetoothProfile.STATE_DISCONNECTED) {
 
 			// Previously connected device. Try to reconnect.
-			if (mBluetoothDeviceAddress != null
-			    && address.equals(mBluetoothDeviceAddress) && mBluetoothGatt != null) {
-				// Log.d(TAG, "Re-use GATT connection");
-				if (mBluetoothGatt.connect()) {
-					return true;
-				} else {
-					// Log.w(TAG, "GATT re-connect failed.");
-					return false;
-				}
-			}
+//			if (mBluetoothDeviceAddress != null
+//			    && address.equals(mBluetoothDeviceAddress) && mBluetoothGatt != null) {
+//				// Log.d(TAG, "Re-use GATT connection");
+//				if (mBluetoothGatt.connect()) {
+//					return true;
+//				} else {
+//					// Log.w(TAG, "GATT re-connect failed.");
+//					return false;
+//				}
+//			}
 
 			if (device == null) {
 				// Log.w(TAG, "Device not found.  Unable to connect.");
@@ -945,32 +945,5 @@ public class BluetoothLeService extends Service {
         }
         return -3; // Set notification to android was wrong ...
     }
-    BluetoothGattCharacteristic dataC,configC;
 
-    /**
-     * 配置Service
-     * @param dataC
-     * @param configC
-     */
-    public void setConfigureService(BluetoothGattCharacteristic dataC,BluetoothGattCharacteristic configC){
-        this.dataC=dataC;
-        this.configC=configC;
-//        configureService();
-        enableService();
-//        deConfigureService();
-//        disableService();
-    }
-
-//    public void configureService() {
-//        int error = this.setCharacteristicNotification(this.dataC, true);
-//    }
-//    public void deConfigureService() {
-//        int error = this.setCharacteristicNotification(this.dataC, false);
-//    }
-    public void enableService () {
-        int error = this.writeCharacteristic(this.dataC, (byte) 0x01);
-    }
-    public void disableService () {
-        int error = this.writeCharacteristic(this.dataC, (byte) 0x00);
-    }
 }

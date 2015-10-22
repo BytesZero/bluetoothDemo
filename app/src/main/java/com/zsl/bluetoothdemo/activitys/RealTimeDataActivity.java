@@ -52,7 +52,7 @@ public class RealTimeDataActivity extends BaseActivity {
     BluetoothGattCharacteristic mCharConfig,mCharData,mCharBattery;
 
     //是否开启实时同步
-    boolean isOpenUpdate;
+    boolean isOpen;
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
@@ -86,7 +86,7 @@ public class RealTimeDataActivity extends BaseActivity {
         bt_setconfig.setOnClickListener(new View.OnClickListener() {
             @Override
             public void onClick(View v) {
-                isOpenUpdata(!isOpenUpdate);
+                isOpenUpdata(!isOpen);
 
             }
         });
@@ -100,12 +100,27 @@ public class RealTimeDataActivity extends BaseActivity {
         });
     }
 
+    @Override
+    protected void onStart() {
+        isOpenUpdata(true);
+        super.onStart();
+    }
+
+    @Override
+    protected void onStop() {
+        isOpenUpdata(false);
+        super.onStop();
+    }
+
     /**
      * 是否开启更新
-     * @param isOpen
+     * @param isOpenupdaate
      */
-    private void isOpenUpdata(boolean isOpen) {
-        isOpenUpdate=isOpen;
+    private void isOpenUpdata(boolean isOpenupdaate) {
+        if (mLeService==null||mCharData==null)
+            return;
+
+        isOpen=isOpenupdaate;
         byte[] config;
         if (isOpen) {
             mLeService.setCharacteristicNotification(mCharData,true);
